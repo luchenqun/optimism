@@ -133,6 +133,11 @@ type rpcHeader struct {
 // checkPostMerge checks that the block header meets all criteria to be a valid ExecutionPayloadHeader,
 // see EIP-3675 (block header changes) and EIP-4399 (mixHash usage for prev-randao)
 func (hdr *rpcHeader) checkPostMerge() error {
+	// Skip checking if a block is post-merge for genesis blocks.
+	// We need this when validating the genesis block for op-goerli & op-mainnet in CheckL2GenesisBlockHash
+	if hdr.Number == 0 {
+		return nil
+	}
 	// TODO: the genesis block has a non-zero difficulty number value.
 	// Either this block needs to change, or we special case it. This is not valid w.r.t. EIP-3675.
 	if hdr.Number != 0 && (*big.Int)(&hdr.Difficulty).Cmp(common.Big0) != 0 {
