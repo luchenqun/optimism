@@ -74,6 +74,9 @@ type Driver struct {
 	// Interface to signal the L2 block range to sync.
 	altSync AltSync
 
+	// async gossiper for payloads
+	asyncGossiper *AsyncGossiper
+
 	// L2 Signals:
 
 	unsafeL2Payloads chan *eth.ExecutionPayload
@@ -112,6 +115,8 @@ func (s *Driver) Start() error {
 			return fmt.Errorf("persist initial sequencer state: %w", err)
 		}
 	}
+
+	s.asyncGossiper.Start(s.driverCtx)
 
 	s.wg.Add(1)
 	go s.eventLoop()
