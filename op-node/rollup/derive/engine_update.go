@@ -168,7 +168,9 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 		return nil, BlockInsertPayloadErr, eth.ForkchoiceUpdateErr(fcRes.PayloadStatus)
 	}
 	// if the block was inserted, clear it from the async gossiper
-	agossip.Clear()
+	if agossip != nil {
+		agossip.Clear()
+	}
 	log.Info("inserted block", "hash", payload.BlockHash, "number", uint64(payload.BlockNumber),
 		"state_root", payload.StateRoot, "timestamp", uint64(payload.Timestamp), "parent", payload.ParentHash,
 		"prev_randao", payload.PrevRandao, "fee_recipient", payload.FeeRecipient,
