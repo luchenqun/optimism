@@ -43,13 +43,13 @@ func NewAsyncGossiper(net Network) *AsyncGossiper {
 	}
 }
 
-// Gossip is an exposed, syncronous function to send a payload to be gossiped into the pregossiper
+// Gossip is an exposed, synchronous function to send a payload to be gossiped into the pregossiper
 func (p *AsyncGossiper) Gossip(payload *eth.ExecutionPayload) {
 	// send the payload to the newPayloads channel. this will block until the payload can be sent
 	p.set <- payload
 }
 
-// Get is an exposed, syncronous function to get the currently gossiping payload from the async pregossiper
+// Get is an exposed, synchronous function to get the currently gossiping payload from the async pregossiper
 func (p *AsyncGossiper) Get() *eth.ExecutionPayload {
 	c := make(chan *eth.ExecutionPayload)
 	// send the channel as a request. this will block until sent
@@ -58,12 +58,12 @@ func (p *AsyncGossiper) Get() *eth.ExecutionPayload {
 	return <-c
 }
 
-// HasPayload is an exposed, syncronous function to check if the pregossiper is currently holding a payload
+// HasPayload is an exposed, synchronous function to check if the pregossiper is currently holding a payload
 func (p *AsyncGossiper) HasPayload() bool {
 	return p.hasPayload.Load()
 }
 
-// Clear is an exposed, syncronous function to clear the currently gossiping payload from the async pregossiper's state
+// Clear is an exposed, synchronous function to clear the currently gossiping payload from the async pregossiper's state
 func (p *AsyncGossiper) Clear() {
 	// send the signal to the clearPayload channel. this will block until the payload can be sent
 	p.clear <- struct{}{}
@@ -84,8 +84,7 @@ func (p *AsyncGossiper) Start(ctx context.Context) {
 			select {
 			// new payloads to be gossiped are found in the `set` channel
 			case payload := <-p.set:
-				p.setPayload(payload)
-				p.gossip(ctx)
+				p.gossip(ctx, payload)
 			// requests to get the current payload are found in the `get` channel
 			case c := <-p.get:
 				p.getPayload(c)
@@ -100,17 +99,15 @@ func (p *AsyncGossiper) Start(ctx context.Context) {
 	}()
 }
 
-// setPayload is the internal handler function for setting the current payload
-// payload is the payload to set as the current payload
-func (p *AsyncGossiper) setPayload(payload *eth.ExecutionPayload) {
-	p.currentPayload = payload
-	p.hasPayload.Store(true)
-}
-
 // gossip is the internal handler function for gossiping the current payload
+// and storing the payload in the async pregossiper's state
 // it is called by the gossiping loop when a new payload is set
-func (p *AsyncGossiper) gossip(ctx context.Context) {
-	p.net.PublishL2Payload(ctx, p.currentPayload)
+// the payload is only stored if the publish is successful
+func (p *AsyncGossiper) gossip(ctx context.Context, payload *eth.ExecutionPayload) {
+	if err := p.net.PublishL2Payload(ctx, p.currentPayload); err == nil {
+		p.currentPayload = payload
+		p.hasPayload.Store(true)
+	}
 }
 
 // getPayload is the internal handler function for getting the current payload

@@ -2,6 +2,7 @@ package async
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -72,7 +73,7 @@ func TestPregossiperLoop(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of pregossiper
 	p := NewAsyncGossiper(m)
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the pregossiper
 	p.Start(ctx)
@@ -98,4 +99,45 @@ func TestPregossiperLoop(t *testing.T) {
 		}, 100*time.Millisecond, 10*time.Millisecond)
 	}
 	require.Equal(t, 10, len(m.reqs))
+	// Stop the pregossiper
+	cancel()
+	// Test that the pregossiper stops within a short duration
+	require.Eventually(t, func() bool {
+		return !p.running.Load()
+	}, 100*time.Millisecond, 10*time.Millisecond)
+}
+
+// failingNetwork is a mock network that always fails to publish
+type failingNetwork struct{}
+
+func (f *failingNetwork) PublishL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error {
+	return errors.New("failed to publish")
+}
+
+// TestPregossiperFailToPublish tests that the pregossiper clears the stored payload if the network fails
+func TestPregossiperFailToPublish(t *testing.T) {
+	m := &failingNetwork{}
+	// Create a new instance of pregossiper
+	p := NewAsyncGossiper(m)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start the pregossiper
+	p.Start(ctx)
+
+	// send a payload
+	payload := &eth.ExecutionPayload{
+		BlockNumber: hexutil.Uint64(1),
+	}
+	p.Gossip(payload)
+	// Rather than expect the payload to become available, we should never see it, due to the publish failure
+	require.Never(t, func() bool {
+		return p.HasPayload() ||
+			p.Get() == payload
+	}, 100*time.Millisecond, 10*time.Millisecond)
+	// Stop the pregossiper
+	cancel()
+	// Test that the pregossiper stops within a short duration
+	require.Eventually(t, func() bool {
+		return !p.running.Load()
+	}, 100*time.Millisecond, 10*time.Millisecond)
 }
