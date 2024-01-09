@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +38,9 @@ func TestPregossiper(t *testing.T) {
 	}, 100*time.Millisecond, 10*time.Millisecond)
 
 	// send a payload
-	payload := &eth.ExecutionPayload{}
+	payload := &eth.ExecutionPayload{
+		BlockNumber: hexutil.Uint64(1),
+	}
 	p.Gossip(payload)
 	require.Eventually(t, func() bool {
 		// Test that the gossiper has content at all
@@ -61,4 +64,38 @@ func TestPregossiper(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
 	}, 100*time.Millisecond, 10*time.Millisecond)
+}
+
+// TestPregossiperLoop confirms that when called repeatedly, the pregossiper holds the latest payload
+// and sends all payloads to the network
+func TestPregossiperLoop(t *testing.T) {
+	m := &mockNetwork{}
+	// Create a new instance of pregossiper
+	p := NewAsyncGossiper(m)
+	ctx, _ := context.WithCancel(context.Background())
+
+	// Start the pregossiper
+	p.Start(ctx)
+
+	// Test that the pregossiper is running within a short duration
+	require.Eventually(t, func() bool {
+		return p.running.Load()
+	}, 100*time.Millisecond, 10*time.Millisecond)
+
+	// send multiple payloads
+	for i := 0; i < 10; i++ {
+		payload := &eth.ExecutionPayload{
+			BlockNumber: hexutil.Uint64(i),
+		}
+		p.Gossip(payload)
+		require.Eventually(t, func() bool {
+			// Test that the gossiper has content at all
+			return p.HasPayload() &&
+				// Test that the gossiper has the correct payload
+				p.Get() == payload &&
+				// Test that the payload has been sent to the (mock) network
+				m.reqs[len(m.reqs)-1] == payload
+		}, 100*time.Millisecond, 10*time.Millisecond)
+	}
+	require.Equal(t, 10, len(m.reqs))
 }
