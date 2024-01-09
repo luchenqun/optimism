@@ -20,20 +20,20 @@ func (m *mockNetwork) PublishL2Payload(ctx context.Context, payload *eth.Executi
 	return nil
 }
 
-// TestPregossiper tests the pregossiper component
+// TestAsyncGossiper tests the AsyncGossiper component
 // because the component is small and simple, it is tested as a whole
-// this test starts, runs, clears and stops the pregossiper
-// because the pregossiper is run in an async component, it is tested with eventually
-func TestPregossiper(t *testing.T) {
+// this test starts, runs, clears and stops the AsyncGossiper
+// because the AsyncGossiper is run in an async component, it is tested with eventually
+func TestAsyncGossiper(t *testing.T) {
 	m := &mockNetwork{}
-	// Create a new instance of pregossiper
+	// Create a new instance of AsyncGossiper
 	p := NewAsyncGossiper(m)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Start the pregossiper
+	// Start the AsyncGossiper
 	p.Start(ctx)
 
-	// Test that the pregossiper is running within a short duration
+	// Test that the AsyncGossiper is running within a short duration
 	require.Eventually(t, func() bool {
 		return p.running.Load()
 	}, 100*time.Millisecond, 10*time.Millisecond)
@@ -59,26 +59,26 @@ func TestPregossiper(t *testing.T) {
 			p.Get() == nil
 	}, 100*time.Millisecond, 10*time.Millisecond)
 
-	// Stop the pregossiper
+	// Stop the AsyncGossiper
 	cancel()
-	// Test that the pregossiper stops within a short duration
+	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
 	}, 100*time.Millisecond, 10*time.Millisecond)
 }
 
-// TestPregossiperLoop confirms that when called repeatedly, the pregossiper holds the latest payload
+// TestAsyncGossiperLoop confirms that when called repeatedly, the AsyncGossiper holds the latest payload
 // and sends all payloads to the network
-func TestPregossiperLoop(t *testing.T) {
+func TestAsyncGossiperLoop(t *testing.T) {
 	m := &mockNetwork{}
-	// Create a new instance of pregossiper
+	// Create a new instance of AsyncGossiper
 	p := NewAsyncGossiper(m)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Start the pregossiper
+	// Start the AsyncGossiper
 	p.Start(ctx)
 
-	// Test that the pregossiper is running within a short duration
+	// Test that the AsyncGossiper is running within a short duration
 	require.Eventually(t, func() bool {
 		return p.running.Load()
 	}, 100*time.Millisecond, 10*time.Millisecond)
@@ -99,9 +99,9 @@ func TestPregossiperLoop(t *testing.T) {
 		}, 100*time.Millisecond, 10*time.Millisecond)
 	}
 	require.Equal(t, 10, len(m.reqs))
-	// Stop the pregossiper
+	// Stop the AsyncGossiper
 	cancel()
-	// Test that the pregossiper stops within a short duration
+	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
 	}, 100*time.Millisecond, 10*time.Millisecond)
@@ -114,14 +114,14 @@ func (f *failingNetwork) PublishL2Payload(ctx context.Context, payload *eth.Exec
 	return errors.New("failed to publish")
 }
 
-// TestPregossiperFailToPublish tests that the pregossiper clears the stored payload if the network fails
-func TestPregossiperFailToPublish(t *testing.T) {
+// TestAsyncGossiperFailToPublish tests that the AsyncGossiper clears the stored payload if the network fails
+func TestAsyncGossiperFailToPublish(t *testing.T) {
 	m := &failingNetwork{}
-	// Create a new instance of pregossiper
+	// Create a new instance of AsyncGossiper
 	p := NewAsyncGossiper(m)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Start the pregossiper
+	// Start the AsyncGossiper
 	p.Start(ctx)
 
 	// send a payload
@@ -134,9 +134,9 @@ func TestPregossiperFailToPublish(t *testing.T) {
 		return p.HasPayload() ||
 			p.Get() == payload
 	}, 100*time.Millisecond, 10*time.Millisecond)
-	// Stop the pregossiper
+	// Stop the AsyncGossiper
 	cancel()
-	// Test that the pregossiper stops within a short duration
+	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
 	}, 100*time.Millisecond, 10*time.Millisecond)
