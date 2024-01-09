@@ -2,6 +2,7 @@ package async
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -104,7 +105,8 @@ func (p *AsyncGossiper) Start(ctx context.Context) {
 // it is called by the gossiping loop when a new payload is set
 // the payload is only stored if the publish is successful
 func (p *AsyncGossiper) gossip(ctx context.Context, payload *eth.ExecutionPayload) {
-	if err := p.net.PublishL2Payload(ctx, p.currentPayload); err == nil {
+	if err := p.net.PublishL2Payload(ctx, payload); err == nil {
+		fmt.Println("settinggg")
 		p.currentPayload = payload
 		p.hasPayload.Store(true)
 	}
