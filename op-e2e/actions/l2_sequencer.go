@@ -94,7 +94,7 @@ func (s *L2Sequencer) ActL2EndBlock(t Testing) {
 	}
 	s.l2Building = false
 
-	_, err := s.sequencer.CompleteBuildingBlock(t.Ctx())
+	_, err := s.sequencer.CompleteBuildingBlock(t.Ctx(), nil)
 	// TODO: there may be legitimate temporary errors here, if we mock engine API RPC-failure.
 	// For advanced tests we can catch those and print a warning instead.
 	require.NoError(t, err)

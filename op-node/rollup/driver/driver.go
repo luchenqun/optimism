@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -79,9 +80,9 @@ type L1StateIface interface {
 
 type SequencerIface interface {
 	StartBuildingBlock(ctx context.Context) error
-	CompleteBuildingBlock(ctx context.Context) (*eth.ExecutionPayload, error)
+	CompleteBuildingBlock(ctx context.Context, agossip *async.AsyncGossiper) (*eth.ExecutionPayload, error)
 	PlanNextSequencerAction() time.Duration
-	RunNextSequencerAction(ctx context.Context) (*eth.ExecutionPayload, error)
+	RunNextSequencerAction(ctx context.Context, agossip *async.AsyncGossiper) (*eth.ExecutionPayload, error)
 	BuildingOnto() eth.L2BlockRef
 	CancelBuildingBlock(ctx context.Context)
 }
@@ -128,7 +129,7 @@ func NewDriver(driverCfg *Config, cfg *rollup.Config, l2 L2Chain, l1 L1Chain, l1
 	meteredEngine := NewMeteredEngine(cfg, engine, metrics, log)
 	sequencer := NewSequencer(log, cfg, meteredEngine, attrBuilder, findL1Origin, metrics)
 	driverCtx, driverCancel := context.WithCancel(context.Background())
-	asyncGossiper := NewAsyncGossiper(network)
+	asyncGossiper := async.NewAsyncGossiper(network)
 	return &Driver{
 		l1State:          l1State,
 		derivation:       derivationPipeline,

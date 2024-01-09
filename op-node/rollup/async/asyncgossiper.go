@@ -1,4 +1,4 @@
-package driver
+package async
 
 import (
 	"context"
@@ -22,6 +22,12 @@ type AsyncGossiper struct {
 	hasPayload     atomic.Bool
 	currentPayload *eth.ExecutionPayload
 	net            Network
+}
+
+// To avoid import cycles, we define a new Network interface here
+// this interface is compatable with driver.Network
+type Network interface {
+	PublishL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error
 }
 
 func NewAsyncGossiper(net Network) *AsyncGossiper {

@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
@@ -74,8 +75,9 @@ type Driver struct {
 	// Interface to signal the L2 block range to sync.
 	altSync AltSync
 
-	// async gossiper for payloads
-	asyncGossiper *AsyncGossiper
+	// async gossiper for payloads to be gossiped without
+	// blocking the event loop or waiting for insertion
+	asyncGossiper *async.AsyncGossiper
 
 	// L2 Signals:
 
@@ -277,7 +279,7 @@ func (s *Driver) eventLoop() {
 
 		select {
 		case <-sequencerCh:
-			payload, err := s.sequencer.RunNextSequencerAction(s.driverCtx)
+			payload, err := s.sequencer.RunNextSequencerAction(s.driverCtx, s.asyncGossiper)
 			if err != nil {
 				s.log.Error("Sequencer critical error", "err", err)
 				return

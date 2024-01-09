@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -161,8 +162,8 @@ func (dp *DerivationPipeline) StartPayload(ctx context.Context, parent eth.L2Blo
 	return dp.eng.StartPayload(ctx, parent, attrs, updateSafe)
 }
 
-func (dp *DerivationPipeline) ConfirmPayload(ctx context.Context) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
-	return dp.eng.ConfirmPayload(ctx)
+func (dp *DerivationPipeline) ConfirmPayload(ctx context.Context, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
+	return dp.eng.ConfirmPayload(ctx, agossip)
 }
 
 func (dp *DerivationPipeline) CancelPayload(ctx context.Context, force bool) error {

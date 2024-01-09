@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -117,8 +118,14 @@ func startPayload(ctx context.Context, eng ExecEngine, fc eth.ForkchoiceState, a
 // confirmPayload ends an execution payload building process in the provided Engine, and persists the payload as the canonical head.
 // If updateSafe is true, then the payload will also be recognized as safe-head at the same time.
 // The severity of the error is distinguished to determine whether the payload was valid and can become canonical.
-func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
-	payload, err := eng.GetPayload(ctx, id)
+func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
+	// if the payload is available from the async gossiper, it means it was not yet imported, so we reuse it
+	var payload *eth.ExecutionPayload
+	if agossip != nil && agossip.HasPayload() {
+		payload = agossip.Get()
+	} else {
+		payload, err = eng.GetPayload(ctx, id)
+	}
 	if err != nil {
 		// even if it is an input-error (unknown payload ID), it is temporary, since we will re-attempt the full payload building, not just the retrieval of the payload.
 		return nil, BlockInsertTemporaryErr, fmt.Errorf("failed to get execution payload: %w", err)
@@ -160,6 +167,8 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 	if fcRes.PayloadStatus.Status != eth.ExecutionValid {
 		return nil, BlockInsertPayloadErr, eth.ForkchoiceUpdateErr(fcRes.PayloadStatus)
 	}
+	// if the block was inserted, clear it from the async gossiper
+	agossip.Clear()
 	log.Info("inserted block", "hash", payload.BlockHash, "number", uint64(payload.BlockNumber),
 		"state_root", payload.StateRoot, "timestamp", uint64(payload.Timestamp), "parent", payload.ParentHash,
 		"prev_randao", payload.PrevRandao, "fee_recipient", payload.FeeRecipient,

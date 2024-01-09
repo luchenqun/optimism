@@ -1,4 +1,4 @@
-package driver
+package async
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func (m *mockNetwork) PublishL2Payload(ctx context.Context, payload *eth.Executi
 func TestPregossiper(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of pregossiper
-	p := NewPreGossiper(m)
+	p := NewAsyncGossiper(m)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the pregossiper
