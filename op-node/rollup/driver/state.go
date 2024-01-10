@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
@@ -57,6 +58,8 @@ type Driver struct {
 
 	// Rollup config: rollup chain configuration
 	config *rollup.Config
+
+	sequencerConductor conductor.SequencerConductor
 
 	// Driver config: verifier and sequencer settings
 	driverConfig *Config
@@ -272,7 +275,7 @@ func (s *Driver) eventLoop() {
 
 		select {
 		case <-sequencerCh:
-			payload, err := s.sequencer.RunNextSequencerAction(s.driverCtx)
+			payload, err := s.sequencer.RunNextSequencerAction(s.driverCtx, s.sequencerConductor)
 			if err != nil {
 				s.log.Error("Sequencer critical error", "err", err)
 				return
@@ -421,6 +424,11 @@ func (s *Driver) ResetDerivationPipeline(ctx context.Context) error {
 func (s *Driver) StartSequencer(ctx context.Context, blockHash common.Hash) error {
 	if !s.driverConfig.SequencerEnabled {
 		return errors.New("sequencer is not enabled")
+	}
+	if isLeader, err := s.sequencerConductor.Leader(ctx); err != nil {
+		return fmt.Errorf("sequencer leader check failed: %w", err)
+	} else if !isLeader {
+		return errors.New("sequencer is not the leader, aborting.")
 	}
 	h := hashAndErrorChannel{
 		hash: blockHash,

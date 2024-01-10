@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -67,7 +68,7 @@ type EngineControl interface {
 	// If updateSafe, the resulting block will be marked as a safe block.
 	StartPayload(ctx context.Context, parent eth.L2BlockRef, attrs *AttributesWithParent, updateSafe bool) (errType BlockInsertionErrType, err error)
 	// ConfirmPayload requests the engine to complete the current block. If no block is being built, or if it fails, an error is returned.
-	ConfirmPayload(ctx context.Context) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error)
+	ConfirmPayload(ctx context.Context, sequencerConductor conductor.SequencerConductor) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error)
 	// CancelPayload requests the engine to stop building the current block without making it canonical.
 	// This is optional, as the engine expires building jobs that are left uncompleted, but can still save resources.
 	CancelPayload(ctx context.Context, force bool) error
@@ -540,7 +541,7 @@ func (eq *EngineQueue) forceNextSafeAttributes(ctx context.Context) error {
 	lastInSpan := eq.safeAttributes.isLastInSpan
 	errType, err := eq.StartPayload(ctx, eq.ec.PendingSafeL2Head(), eq.safeAttributes, true)
 	if err == nil {
-		_, errType, err = eq.ConfirmPayload(ctx)
+		_, errType, err = eq.ConfirmPayload(ctx, &conductor.NoOpConductor{})
 	}
 	if err != nil {
 		switch errType {
@@ -593,8 +594,8 @@ func (eq *EngineQueue) StartPayload(ctx context.Context, parent eth.L2BlockRef, 
 	return eq.ec.StartPayload(ctx, parent, attrs, updateSafe)
 }
 
-func (eq *EngineQueue) ConfirmPayload(ctx context.Context) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
-	return eq.ec.ConfirmPayload(ctx)
+func (eq *EngineQueue) ConfirmPayload(ctx context.Context, sequencerConductor conductor.SequencerConductor) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
+	return eq.ec.ConfirmPayload(ctx, sequencerConductor)
 }
 
 func (eq *EngineQueue) CancelPayload(ctx context.Context, force bool) error {

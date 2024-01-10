@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -117,7 +118,7 @@ func startPayload(ctx context.Context, eng ExecEngine, fc eth.ForkchoiceState, a
 // confirmPayload ends an execution payload building process in the provided Engine, and persists the payload as the canonical head.
 // If updateSafe is true, then the payload will also be recognized as safe-head at the same time.
 // The severity of the error is distinguished to determine whether the payload was valid and can become canonical.
-func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
+func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool, sequencerConductor conductor.SequencerConductor) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
 	payload, err := eng.GetPayload(ctx, id)
 	if err != nil {
 		// even if it is an input-error (unknown payload ID), it is temporary, since we will re-attempt the full payload building, not just the retrieval of the payload.
@@ -125,6 +126,9 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 	}
 	if err := sanityCheckPayload(payload); err != nil {
 		return nil, BlockInsertPayloadErr, err
+	}
+	if err := sequencerConductor.CommitUnsafePayload(ctx, payload); err != nil {
+		return nil, BlockInsertTemporaryErr, fmt.Errorf("failed to commit unsafe payload to conductor: %w", err)
 	}
 
 	status, err := eng.NewPayload(ctx, payload)
