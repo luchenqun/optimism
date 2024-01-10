@@ -2,7 +2,6 @@ package async
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
