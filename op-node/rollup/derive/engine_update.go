@@ -123,6 +123,12 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 	var payload *eth.ExecutionPayload
 	if agossip != nil && agossip.HasPayload() {
 		payload = agossip.Get()
+		// log a limited amount of information about the reused payload, more detailed logging happens later down
+		log.Debug("found uninserted payload from async gossiper, reusing it and bypassing engine",
+			"hash", payload.BlockHash,
+			"number", uint64(payload.BlockNumber),
+			"parent", payload.ParentHash,
+			"txs", len(payload.Transactions))
 	} else {
 		payload, err = eng.GetPayload(ctx, id)
 	}
