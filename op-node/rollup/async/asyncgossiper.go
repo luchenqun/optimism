@@ -106,7 +106,6 @@ func (p *AsyncGossiper) Start(ctx context.Context) {
 // the payload is only stored if the publish is successful
 func (p *AsyncGossiper) gossip(ctx context.Context, payload *eth.ExecutionPayload) {
 	if err := p.net.PublishL2Payload(ctx, payload); err == nil {
-		fmt.Println("settinggg")
 		p.currentPayload = payload
 		p.hasPayload.Store(true)
 	}
