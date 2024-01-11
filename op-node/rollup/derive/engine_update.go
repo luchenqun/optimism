@@ -119,9 +119,13 @@ func startPayload(ctx context.Context, eng ExecEngine, fc eth.ForkchoiceState, a
 // If updateSafe is true, then the payload will also be recognized as safe-head at the same time.
 // The severity of the error is distinguished to determine whether the payload was valid and can become canonical.
 func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
-	// if the payload is available from the async gossiper, it means it was not yet imported, so we reuse it
 	var payload *eth.ExecutionPayload
-	if agossip != nil && agossip.Get() != nil {
+	// if the payload is available from the async gossiper, it means it was not yet imported, so we reuse it
+	var cachedPayload *eth.ExecutionPayload
+	if agossip != nil {
+		cachedPayload = agossip.Get()
+	}
+	if cachedPayload != nil {
 		payload = agossip.Get()
 		// log a limited amount of information about the reused payload, more detailed logging happens later down
 		log.Debug("found uninserted payload from async gossiper, reusing it and bypassing engine",
