@@ -280,7 +280,7 @@ func (s *Driver) eventLoop() {
 		select {
 		case <-sequencerCh:
 			// the payload publishing is handled by the async gossiper, which will begin gossiping as soon as available
-			// so, we don't need to recieve the payload here
+			// so, we don't need to receive the payload here
 			_, err := s.sequencer.RunNextSequencerAction(s.driverCtx, s.asyncGossiper)
 			if err != nil {
 				s.log.Error("Sequencer critical error", "err", err)
