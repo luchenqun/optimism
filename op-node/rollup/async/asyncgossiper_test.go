@@ -21,6 +21,10 @@ func (m *mockNetwork) PublishL2Payload(ctx context.Context, payload *eth.Executi
 	return nil
 }
 
+type mockMetrics struct{}
+
+func (m *mockMetrics) RecordPublishingError() {}
+
 // TestAsyncGossiper tests the AsyncGossiper component
 // because the component is small and simple, it is tested as a whole
 // this test starts, runs, clears and stops the AsyncGossiper
@@ -28,7 +32,7 @@ func (m *mockNetwork) PublishL2Payload(ctx context.Context, payload *eth.Executi
 func TestAsyncGossiper(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m, log.New())
+	p := NewAsyncGossiper(m, log.New(), &mockMetrics{})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the AsyncGossiper
@@ -70,7 +74,7 @@ func TestAsyncGossiper(t *testing.T) {
 func TestAsyncGossiperLoop(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m, log.New())
+	p := NewAsyncGossiper(m, log.New(), &mockMetrics{})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the AsyncGossiper
@@ -114,7 +118,7 @@ func (f *failingNetwork) PublishL2Payload(ctx context.Context, payload *eth.Exec
 func TestAsyncGossiperFailToPublish(t *testing.T) {
 	m := &failingNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m, log.New())
+	p := NewAsyncGossiper(m, log.New(), &mockMetrics{})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the AsyncGossiper

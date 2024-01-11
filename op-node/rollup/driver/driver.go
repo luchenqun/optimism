@@ -129,7 +129,7 @@ func NewDriver(driverCfg *Config, cfg *rollup.Config, l2 L2Chain, l1 L1Chain, l1
 	meteredEngine := NewMeteredEngine(cfg, engine, metrics, log)
 	sequencer := NewSequencer(log, cfg, meteredEngine, attrBuilder, findL1Origin, metrics)
 	driverCtx, driverCancel := context.WithCancel(context.Background())
-	asyncGossiper := async.NewAsyncGossiper(network, log)
+	asyncGossiper := async.NewAsyncGossiper(network, log, metrics)
 	return &Driver{
 		l1State:          l1State,
 		derivation:       derivationPipeline,

@@ -279,18 +279,12 @@ func (s *Driver) eventLoop() {
 
 		select {
 		case <-sequencerCh:
-			payload, err := s.sequencer.RunNextSequencerAction(s.driverCtx, s.asyncGossiper)
+			// the payload publishing is handled by the async gossiper, which will begin gossiping as soon as available
+			// so, we don't need to recieve the payload here
+			_, err := s.sequencer.RunNextSequencerAction(s.driverCtx, s.asyncGossiper)
 			if err != nil {
 				s.log.Error("Sequencer critical error", "err", err)
 				return
-			}
-			if s.network != nil && payload != nil {
-				// Publishing of unsafe data via p2p is optional.
-				// Errors are not severe enough to change/halt sequencing but should be logged and metered.
-				if err := s.network.PublishL2Payload(s.driverCtx, payload); err != nil {
-					s.log.Warn("failed to publish newly created block", "id", payload.ID(), "err", err)
-					s.metrics.RecordPublishingError()
-				}
 			}
 			planSequencerAction() // schedule the next sequencer action to keep the sequencing looping
 		case <-altSyncTicker.C:

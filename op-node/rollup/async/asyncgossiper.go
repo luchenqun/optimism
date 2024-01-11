@@ -13,6 +13,7 @@ import (
 // it uses a separate goroutine to handle gossiping the payload asynchronously
 // the payload can be accessed by the Get function to be reused when the payload was gossiped but not inserted
 // exposed functions are synchronous, and block until the async routine is able to start handling the request
+
 type AsyncGossiper struct {
 	running atomic.Bool
 	// channel to add new payloads to gossip
@@ -25,6 +26,7 @@ type AsyncGossiper struct {
 	currentPayload *eth.ExecutionPayload
 	net            Network
 	log            log.Logger
+	metrics        Metrics
 }
 
 // To avoid import cycles, we define a new Network interface here
@@ -33,7 +35,13 @@ type Network interface {
 	PublishL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error
 }
 
-func NewAsyncGossiper(net Network, log log.Logger) *AsyncGossiper {
+// To avoid import cycles, we define a new Metrics interface here
+// this interface is compatable with driver.Metrics
+type Metrics interface {
+	RecordPublishingError()
+}
+
+func NewAsyncGossiper(net Network, log log.Logger, metrics Metrics) *AsyncGossiper {
 	return &AsyncGossiper{
 		running: atomic.Bool{},
 		set:     make(chan *eth.ExecutionPayload, 1),
@@ -43,6 +51,7 @@ func NewAsyncGossiper(net Network, log log.Logger) *AsyncGossiper {
 		currentPayload: nil,
 		net:            net,
 		log:            log,
+		metrics:        metrics,
 	}
 }
 
@@ -98,13 +107,14 @@ func (p *AsyncGossiper) Start(ctx context.Context) {
 
 // gossip is the internal handler function for gossiping the current payload
 // and storing the payload in the async AsyncGossiper's state
-// it is called by the gossiping loop when a new payload is set
+// it is called by the Start loop when a new payload is set
 // the payload is only stored if the publish is successful
 func (p *AsyncGossiper) gossip(ctx context.Context, payload *eth.ExecutionPayload) {
 	if err := p.net.PublishL2Payload(ctx, payload); err == nil {
 		p.currentPayload = payload
 	} else {
-		p.log.Warn("failed to publish newly created block during early gossip via async gossiper", "id", payload.ID(), "err", err)
+		p.log.Warn("failed to publish newly created block", "id", payload.ID(), "err", err)
+		p.metrics.RecordPublishingError()
 	}
 }
 
