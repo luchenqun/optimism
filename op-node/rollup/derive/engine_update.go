@@ -121,7 +121,7 @@ func startPayload(ctx context.Context, eng ExecEngine, fc eth.ForkchoiceState, a
 func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
 	// if the payload is available from the async gossiper, it means it was not yet imported, so we reuse it
 	var payload *eth.ExecutionPayload
-	if agossip != nil && agossip.HasPayload() {
+	if agossip != nil && agossip.Get() != nil {
 		payload = agossip.Get()
 		// log a limited amount of information about the reused payload, more detailed logging happens later down
 		log.Debug("found uninserted payload from async gossiper, reusing it and bypassing engine",
@@ -131,6 +131,8 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 			"txs", len(payload.Transactions))
 	} else {
 		payload, err = eng.GetPayload(ctx, id)
+		// begin gossiping as soon as possible
+		agossip.Gossip(payload)
 	}
 	if err != nil {
 		// even if it is an input-error (unknown payload ID), it is temporary, since we will re-attempt the full payload building, not just the retrieval of the payload.
@@ -170,12 +172,12 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 			return nil, BlockInsertTemporaryErr, fmt.Errorf("failed to make the new L2 block canonical via forkchoice: %w", err)
 		}
 	}
-	if fcRes.PayloadStatus.Status != eth.ExecutionValid {
-		return nil, BlockInsertPayloadErr, eth.ForkchoiceUpdateErr(fcRes.PayloadStatus)
-	}
-	// if the block was inserted, clear it from the async gossiper
+	// at this point the block is either inserted, or not valid, so clear it from the async gossiper
 	if agossip != nil {
 		agossip.Clear()
+	}
+	if fcRes.PayloadStatus.Status != eth.ExecutionValid {
+		return nil, BlockInsertPayloadErr, eth.ForkchoiceUpdateErr(fcRes.PayloadStatus)
 	}
 	log.Info("inserted block", "hash", payload.BlockHash, "number", uint64(payload.BlockNumber),
 		"state_root", payload.StateRoot, "timestamp", uint64(payload.Timestamp), "parent", payload.ParentHash,

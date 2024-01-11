@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +28,7 @@ func (m *mockNetwork) PublishL2Payload(ctx context.Context, payload *eth.Executi
 func TestAsyncGossiper(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m)
+	p := NewAsyncGossiper(m, log.New())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the AsyncGossiper
@@ -45,9 +46,7 @@ func TestAsyncGossiper(t *testing.T) {
 	p.Gossip(payload)
 	require.Eventually(t, func() bool {
 		// Test that the gossiper has content at all
-		return p.HasPayload() &&
-			// Test that the gossiper has the correct payload
-			p.Get() == payload &&
+		return p.Get() == payload &&
 			// Test that the payload has been sent to the (mock) network
 			m.reqs[0] == payload
 	}, time.Second, 10*time.Millisecond)
@@ -55,8 +54,7 @@ func TestAsyncGossiper(t *testing.T) {
 	p.Clear()
 	require.Eventually(t, func() bool {
 		// Test that the gossiper has no payload
-		return !p.HasPayload() &&
-			p.Get() == nil
+		return p.Get() == nil
 	}, time.Second, 10*time.Millisecond)
 
 	// Stop the AsyncGossiper
@@ -72,7 +70,7 @@ func TestAsyncGossiper(t *testing.T) {
 func TestAsyncGossiperLoop(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m)
+	p := NewAsyncGossiper(m, log.New())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the AsyncGossiper
@@ -91,9 +89,7 @@ func TestAsyncGossiperLoop(t *testing.T) {
 		p.Gossip(payload)
 		require.Eventually(t, func() bool {
 			// Test that the gossiper has content at all
-			return p.HasPayload() &&
-				// Test that the gossiper has the correct payload
-				p.Get() == payload &&
+			return p.Get() == payload &&
 				// Test that the payload has been sent to the (mock) network
 				m.reqs[len(m.reqs)-1] == payload
 		}, time.Second, 10*time.Millisecond)
@@ -118,7 +114,7 @@ func (f *failingNetwork) PublishL2Payload(ctx context.Context, payload *eth.Exec
 func TestAsyncGossiperFailToPublish(t *testing.T) {
 	m := &failingNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m)
+	p := NewAsyncGossiper(m, log.New())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start the AsyncGossiper
@@ -131,8 +127,7 @@ func TestAsyncGossiperFailToPublish(t *testing.T) {
 	p.Gossip(payload)
 	// Rather than expect the payload to become available, we should never see it, due to the publish failure
 	require.Never(t, func() bool {
-		return p.HasPayload() ||
-			p.Get() == payload
+		return p.Get() == payload
 	}, time.Second, 10*time.Millisecond)
 	// Stop the AsyncGossiper
 	cancel()
