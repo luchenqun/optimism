@@ -32,11 +32,10 @@ func (m *mockMetrics) RecordPublishingError() {}
 func TestAsyncGossiper(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m, log.New(), &mockMetrics{})
-	ctx, cancel := context.WithCancel(context.Background())
+	p := NewAsyncGossiper(context.Background(), m, log.New(), &mockMetrics{})
 
 	// Start the AsyncGossiper
-	p.Start(ctx)
+	p.Start()
 
 	// Test that the AsyncGossiper is running within a short duration
 	require.Eventually(t, func() bool {
@@ -62,7 +61,8 @@ func TestAsyncGossiper(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 
 	// Stop the AsyncGossiper
-	cancel()
+	p.Stop()
+
 	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
@@ -74,11 +74,10 @@ func TestAsyncGossiper(t *testing.T) {
 func TestAsyncGossiperLoop(t *testing.T) {
 	m := &mockNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m, log.New(), &mockMetrics{})
-	ctx, cancel := context.WithCancel(context.Background())
+	p := NewAsyncGossiper(context.Background(), m, log.New(), &mockMetrics{})
 
 	// Start the AsyncGossiper
-	p.Start(ctx)
+	p.Start()
 
 	// Test that the AsyncGossiper is running within a short duration
 	require.Eventually(t, func() bool {
@@ -100,7 +99,7 @@ func TestAsyncGossiperLoop(t *testing.T) {
 	}
 	require.Equal(t, 10, len(m.reqs))
 	// Stop the AsyncGossiper
-	cancel()
+	p.Stop()
 	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
@@ -118,11 +117,10 @@ func (f *failingNetwork) PublishL2Payload(ctx context.Context, payload *eth.Exec
 func TestAsyncGossiperFailToPublish(t *testing.T) {
 	m := &failingNetwork{}
 	// Create a new instance of AsyncGossiper
-	p := NewAsyncGossiper(m, log.New(), &mockMetrics{})
-	ctx, cancel := context.WithCancel(context.Background())
+	p := NewAsyncGossiper(context.Background(), m, log.New(), &mockMetrics{})
 
 	// Start the AsyncGossiper
-	p.Start(ctx)
+	p.Start()
 
 	// send a payload
 	payload := &eth.ExecutionPayload{
@@ -134,7 +132,7 @@ func TestAsyncGossiperFailToPublish(t *testing.T) {
 		return p.Get() == payload
 	}, time.Second, 10*time.Millisecond)
 	// Stop the AsyncGossiper
-	cancel()
+	p.Stop()
 	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()

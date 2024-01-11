@@ -22,8 +22,11 @@ type AsyncGossiper struct {
 	get chan chan *eth.ExecutionPayload
 	// channel to request clearing the currently gossiping payload
 	clear chan struct{}
+	// channel to request stopping the handling loop
+	stop chan struct{}
 
 	currentPayload *eth.ExecutionPayload
+	ctx            context.Context
 	net            Network
 	log            log.Logger
 	metrics        Metrics
@@ -41,15 +44,17 @@ type Metrics interface {
 	RecordPublishingError()
 }
 
-func NewAsyncGossiper(net Network, log log.Logger, metrics Metrics) *AsyncGossiper {
+func NewAsyncGossiper(ctx context.Context, net Network, log log.Logger, metrics Metrics) *AsyncGossiper {
 	return &AsyncGossiper{
 		running: atomic.Bool{},
-		set:     make(chan *eth.ExecutionPayload, 1),
+		set:     make(chan *eth.ExecutionPayload),
 		get:     make(chan chan *eth.ExecutionPayload),
 		clear:   make(chan struct{}),
+		stop:    make(chan struct{}),
 
 		currentPayload: nil,
 		net:            net,
+		ctx:            ctx,
 		log:            log,
 		metrics:        metrics,
 	}
@@ -75,9 +80,15 @@ func (p *AsyncGossiper) Clear() {
 	p.clear <- struct{}{}
 }
 
+// Stop is a synchronous function to stop the async routine
+// it blocks until the async routine accepts the signal
+func (p *AsyncGossiper) Stop() {
+	p.stop <- struct{}{}
+}
+
 // Start starts the AsyncGossiper's gossiping loop on a separate goroutine
 // each behavior of the loop is handled by a select case on a channel, plus an internal handler function call
-func (p *AsyncGossiper) Start(ctx context.Context) {
+func (p *AsyncGossiper) Start() {
 	// if the gossiping is already running, return
 	if p.running.Load() {
 		return
@@ -90,7 +101,7 @@ func (p *AsyncGossiper) Start(ctx context.Context) {
 			select {
 			// new payloads to be gossiped are found in the `set` channel
 			case payload := <-p.set:
-				p.gossip(ctx, payload)
+				p.gossip(p.ctx, payload)
 			// requests to get the current payload are found in the `get` channel
 			case c := <-p.get:
 				p.getPayload(c)
@@ -98,7 +109,7 @@ func (p *AsyncGossiper) Start(ctx context.Context) {
 			case <-p.clear:
 				p.clearPayload()
 			// if the context is done, return
-			case <-ctx.Done():
+			case <-p.stop:
 				return
 			}
 		}

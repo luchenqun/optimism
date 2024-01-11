@@ -118,7 +118,7 @@ func (s *Driver) Start() error {
 		}
 	}
 
-	s.asyncGossiper.Start(s.driverCtx)
+	s.asyncGossiper.Start()
 
 	s.wg.Add(1)
 	go s.eventLoop()
@@ -129,6 +129,7 @@ func (s *Driver) Start() error {
 func (s *Driver) Close() error {
 	s.driverCancel()
 	s.wg.Wait()
+	s.asyncGossiper.Stop()
 	return nil
 }
 
