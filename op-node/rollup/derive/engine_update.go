@@ -140,7 +140,9 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 		return nil, BlockInsertPayloadErr, err
 	}
 	// begin gossiping as soon as possible
-	agossip.Gossip(payload)
+	if agossip != nil {
+		agossip.Gossip(payload)
+	}
 
 	status, err := eng.NewPayload(ctx, payload)
 	if err != nil {
