@@ -131,8 +131,6 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 			"txs", len(payload.Transactions))
 	} else {
 		payload, err = eng.GetPayload(ctx, id)
-		// begin gossiping as soon as possible
-		agossip.Gossip(payload)
 	}
 	if err != nil {
 		// even if it is an input-error (unknown payload ID), it is temporary, since we will re-attempt the full payload building, not just the retrieval of the payload.
@@ -141,6 +139,8 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 	if err := sanityCheckPayload(payload); err != nil {
 		return nil, BlockInsertPayloadErr, err
 	}
+	// begin gossiping as soon as possible
+	agossip.Gossip(payload)
 
 	status, err := eng.NewPayload(ctx, payload)
 	if err != nil {
