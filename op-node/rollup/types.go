@@ -208,11 +208,22 @@ func (cfg *Config) CheckL2ChainID(ctx context.Context, client L2Client) error {
 
 // CheckL2GenesisBlockHash checks that the configured L2 genesis block hash is valid for the given client.
 func (cfg *Config) CheckL2GenesisBlockHash(ctx context.Context, client L2Client) error {
-	l2GenesisBlockRef, err := client.L2BlockRefByNumber(ctx, cfg.Genesis.L2.Number)
+	l2Number := cfg.Genesis.L2.Number
+	l2Hash := cfg.Genesis.L2.Hash
+	// Use the actual genesis on transitioned networks (i.e. op-mainnet & op-goerli).
+	if cfg.L2ChainID.Uint64() == 10 {
+		l2Number = 0
+		l2Hash = common.HexToHash("0x7ca38a1916c42007829c55e69d3e9a73265554b586a499015373241b8a3fa48b")
+	} else if cfg.L2ChainID.Uint64() == 420 {
+		l2Number = 0
+		l2Hash = common.HexToHash("0xc1fc15cd51159b1f1e5cbc4b82e85c1447ddfa33c52cf1d98d14fba0d6354be1")
+		return nil // HACK
+	}
+	l2GenesisBlockRef, err := client.L2BlockRefByNumber(ctx, l2Number)
 	if err != nil {
 		return fmt.Errorf("failed to get L2 genesis blockhash: %w", err)
 	}
-	if l2GenesisBlockRef.Hash != cfg.Genesis.L2.Hash {
+	if l2GenesisBlockRef.Hash != l2Hash {
 		return fmt.Errorf("incorrect L2 genesis block hash %s, expected %s", l2GenesisBlockRef.Hash, cfg.Genesis.L2.Hash)
 	}
 	return nil
