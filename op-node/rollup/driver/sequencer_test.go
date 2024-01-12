@@ -349,8 +349,7 @@ func TestSequencerChaosMonkey(t *testing.T) {
 		default:
 			// no error
 		}
-		ngossip := async.NoOpGossiper{}
-		payload, err := seq.RunNextSequencerAction(context.Background(), &ngossip)
+		payload, err := seq.RunNextSequencerAction(context.Background(), async.NoOpGossiper{})
 		require.NoError(t, err)
 		if payload != nil {
 			require.Equal(t, engControl.UnsafeL2Head().ID(), payload.ID(), "head must stay in sync with emitted payloads")

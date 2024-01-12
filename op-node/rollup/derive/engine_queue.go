@@ -541,7 +541,7 @@ func (eq *EngineQueue) forceNextSafeAttributes(ctx context.Context) error {
 	lastInSpan := eq.safeAttributes.isLastInSpan
 	errType, err := eq.StartPayload(ctx, eq.ec.PendingSafeL2Head(), eq.safeAttributes, true)
 	if err == nil {
-		_, errType, err = eq.ConfirmPayload(ctx, nil)
+		_, errType, err = eq.ConfirmPayload(ctx, async.NoOpGossiper{})
 	}
 	if err != nil {
 		switch errType {

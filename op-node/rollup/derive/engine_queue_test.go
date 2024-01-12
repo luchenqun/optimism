@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -999,7 +1000,7 @@ func TestBlockBuildingRace(t *testing.T) {
 	eng.ExpectForkchoiceUpdate(postFc, nil, postFcRes, nil)
 
 	// Now complete the job, as external user of the engine
-	_, _, err = eq.ConfirmPayload(context.Background(), nil)
+	_, _, err = eq.ConfirmPayload(context.Background(), async.NoOpGossiper{})
 	require.NoError(t, err)
 	require.Equal(t, refA1, eq.SafeL2Head(), "safe head should have changed")
 
