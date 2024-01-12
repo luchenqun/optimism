@@ -118,15 +118,11 @@ func startPayload(ctx context.Context, eng ExecEngine, fc eth.ForkchoiceState, a
 // confirmPayload ends an execution payload building process in the provided Engine, and persists the payload as the canonical head.
 // If updateSafe is true, then the payload will also be recognized as safe-head at the same time.
 // The severity of the error is distinguished to determine whether the payload was valid and can become canonical.
-func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
+func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.ForkchoiceState, id eth.PayloadID, updateSafe bool, agossip async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
 	var payload *eth.ExecutionPayload
 	// if the payload is available from the async gossiper, it means it was not yet imported, so we reuse it
-	var cachedPayload *eth.ExecutionPayload
-	if agossip != nil {
-		cachedPayload = agossip.Get()
-	}
-	if cachedPayload != nil {
-		payload = agossip.Get()
+	if cachedPayload := agossip.Get(); cachedPayload != nil {
+		payload = cachedPayload
 		// log a limited amount of information about the reused payload, more detailed logging happens later down
 		log.Debug("found uninserted payload from async gossiper, reusing it and bypassing engine",
 			"hash", payload.BlockHash,
@@ -144,15 +140,15 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 		return nil, BlockInsertPayloadErr, err
 	}
 	// begin gossiping as soon as possible
-	if agossip != nil {
-		agossip.Gossip(payload)
-	}
+	// agossip.Clear() will be called later if an non-temporary error is found, or if the payload is successfully inserted
+	agossip.Gossip(payload)
 
 	status, err := eng.NewPayload(ctx, payload)
 	if err != nil {
 		return nil, BlockInsertTemporaryErr, fmt.Errorf("failed to insert execution payload: %w", err)
 	}
 	if status.Status == eth.ExecutionInvalid || status.Status == eth.ExecutionInvalidBlockHash {
+		agossip.Clear()
 		return nil, BlockInsertPayloadErr, eth.NewPayloadErr(payload, status)
 	}
 	if status.Status != eth.ExecutionValid {
@@ -170,18 +166,17 @@ func confirmPayload(ctx context.Context, log log.Logger, eng ExecEngine, fc eth.
 			switch inputErr.Code {
 			case eth.InvalidForkchoiceState:
 				// if we succeed to update the forkchoice pre-payload, but fail post-payload, then it is a payload error
+				agossip.Clear()
 				return nil, BlockInsertPayloadErr, fmt.Errorf("post-block-creation forkchoice update was inconsistent with engine, need reset to resolve: %w", inputErr.Unwrap())
 			default:
+				agossip.Clear()
 				return nil, BlockInsertPrestateErr, fmt.Errorf("unexpected error code in forkchoice-updated response: %w", err)
 			}
 		} else {
 			return nil, BlockInsertTemporaryErr, fmt.Errorf("failed to make the new L2 block canonical via forkchoice: %w", err)
 		}
 	}
-	// at this point the block is either inserted, or not valid, so clear it from the async gossiper
-	if agossip != nil {
-		agossip.Clear()
-	}
+	agossip.Clear()
 	if fcRes.PayloadStatus.Status != eth.ExecutionValid {
 		return nil, BlockInsertPayloadErr, eth.ForkchoiceUpdateErr(fcRes.PayloadStatus)
 	}

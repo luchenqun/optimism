@@ -140,7 +140,7 @@ func (e *EngineController) StartPayload(ctx context.Context, parent eth.L2BlockR
 	return BlockInsertOK, nil
 }
 
-func (e *EngineController) ConfirmPayload(ctx context.Context, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
+func (e *EngineController) ConfirmPayload(ctx context.Context, agossip async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
 	if e.buildingID == (eth.PayloadID{}) {
 		return nil, BlockInsertPrestateErr, fmt.Errorf("cannot complete payload building: not currently building a payload")
 	}

@@ -80,9 +80,9 @@ type L1StateIface interface {
 
 type SequencerIface interface {
 	StartBuildingBlock(ctx context.Context) error
-	CompleteBuildingBlock(ctx context.Context, agossip *async.AsyncGossiper) (*eth.ExecutionPayload, error)
+	CompleteBuildingBlock(ctx context.Context, agossip async.AsyncGossiper) (*eth.ExecutionPayload, error)
 	PlanNextSequencerAction() time.Duration
-	RunNextSequencerAction(ctx context.Context, agossip *async.AsyncGossiper) (*eth.ExecutionPayload, error)
+	RunNextSequencerAction(ctx context.Context, agossip async.AsyncGossiper) (*eth.ExecutionPayload, error)
 	BuildingOnto() eth.L2BlockRef
 	CancelBuildingBlock(ctx context.Context)
 }

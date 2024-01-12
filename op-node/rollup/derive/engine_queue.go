@@ -68,7 +68,7 @@ type EngineControl interface {
 	// If updateSafe, the resulting block will be marked as a safe block.
 	StartPayload(ctx context.Context, parent eth.L2BlockRef, attrs *AttributesWithParent, updateSafe bool) (errType BlockInsertionErrType, err error)
 	// ConfirmPayload requests the engine to complete the current block. If no block is being built, or if it fails, an error is returned.
-	ConfirmPayload(ctx context.Context, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error)
+	ConfirmPayload(ctx context.Context, agossip async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error)
 	// CancelPayload requests the engine to stop building the current block without making it canonical.
 	// This is optional, as the engine expires building jobs that are left uncompleted, but can still save resources.
 	CancelPayload(ctx context.Context, force bool) error
@@ -594,7 +594,7 @@ func (eq *EngineQueue) StartPayload(ctx context.Context, parent eth.L2BlockRef, 
 	return eq.ec.StartPayload(ctx, parent, attrs, updateSafe)
 }
 
-func (eq *EngineQueue) ConfirmPayload(ctx context.Context, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
+func (eq *EngineQueue) ConfirmPayload(ctx context.Context, agossip async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp BlockInsertionErrType, err error) {
 	return eq.ec.ConfirmPayload(ctx, agossip)
 }
 

@@ -74,7 +74,7 @@ func (m *FakeEngineControl) StartPayload(ctx context.Context, parent eth.L2Block
 	return derive.BlockInsertOK, nil
 }
 
-func (m *FakeEngineControl) ConfirmPayload(ctx context.Context, agossip *async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp derive.BlockInsertionErrType, err error) {
+func (m *FakeEngineControl) ConfirmPayload(ctx context.Context, agossip async.AsyncGossiper) (out *eth.ExecutionPayload, errTyp derive.BlockInsertionErrType, err error) {
 	if m.err != nil {
 		return nil, m.errTyp, m.err
 	}
@@ -349,7 +349,8 @@ func TestSequencerChaosMonkey(t *testing.T) {
 		default:
 			// no error
 		}
-		payload, err := seq.RunNextSequencerAction(context.Background(), nil)
+		ngossip := async.NoOpGossiper{}
+		payload, err := seq.RunNextSequencerAction(context.Background(), &ngossip)
 		require.NoError(t, err)
 		if payload != nil {
 			require.Equal(t, engControl.UnsafeL2Head().ID(), payload.ID(), "head must stay in sync with emitted payloads")

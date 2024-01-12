@@ -9,12 +9,19 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
-// AsyncGossiper is a component that stores and gossips a single payload at a time
+type AsyncGossiper interface {
+	Gossip(payload *eth.ExecutionPayload)
+	Get() *eth.ExecutionPayload
+	Clear()
+	Stop()
+	Start()
+}
+
+// SimpleAsyncGossiper is a component that stores and gossips a single payload at a time
 // it uses a separate goroutine to handle gossiping the payload asynchronously
 // the payload can be accessed by the Get function to be reused when the payload was gossiped but not inserted
 // exposed functions are synchronous, and block until the async routine is able to start handling the request
-
-type AsyncGossiper struct {
+type SimpleAsyncGossiper struct {
 	running atomic.Bool
 	// channel to add new payloads to gossip
 	set chan *eth.ExecutionPayload
@@ -44,8 +51,8 @@ type Metrics interface {
 	RecordPublishingError()
 }
 
-func NewAsyncGossiper(ctx context.Context, net Network, log log.Logger, metrics Metrics) *AsyncGossiper {
-	return &AsyncGossiper{
+func NewAsyncGossiper(ctx context.Context, net Network, log log.Logger, metrics Metrics) *SimpleAsyncGossiper {
+	return &SimpleAsyncGossiper{
 		running: atomic.Bool{},
 		set:     make(chan *eth.ExecutionPayload),
 		get:     make(chan chan *eth.ExecutionPayload),
@@ -62,13 +69,13 @@ func NewAsyncGossiper(ctx context.Context, net Network, log log.Logger, metrics 
 
 // Gossip is a synchronous function to store and gossip a payload
 // it blocks until the payload can be taken by the async routine
-func (p *AsyncGossiper) Gossip(payload *eth.ExecutionPayload) {
+func (p *SimpleAsyncGossiper) Gossip(payload *eth.ExecutionPayload) {
 	p.set <- payload
 }
 
 // Get is a synchronous function to get the currently held payload
 // it blocks until the async routine is able to return the payload
-func (p *AsyncGossiper) Get() *eth.ExecutionPayload {
+func (p *SimpleAsyncGossiper) Get() *eth.ExecutionPayload {
 	c := make(chan *eth.ExecutionPayload)
 	p.get <- c
 	return <-c
@@ -76,19 +83,19 @@ func (p *AsyncGossiper) Get() *eth.ExecutionPayload {
 
 // Clear is a synchronous function to clear the currently gossiping payload
 // it blocks until the signal to clear is picked up by the async routine
-func (p *AsyncGossiper) Clear() {
+func (p *SimpleAsyncGossiper) Clear() {
 	p.clear <- struct{}{}
 }
 
 // Stop is a synchronous function to stop the async routine
 // it blocks until the async routine accepts the signal
-func (p *AsyncGossiper) Stop() {
+func (p *SimpleAsyncGossiper) Stop() {
 	p.stop <- struct{}{}
 }
 
 // Start starts the AsyncGossiper's gossiping loop on a separate goroutine
 // each behavior of the loop is handled by a select case on a channel, plus an internal handler function call
-func (p *AsyncGossiper) Start() {
+func (p *SimpleAsyncGossiper) Start() {
 	// if the gossiping is already running, return
 	if p.running.Load() {
 		return
@@ -120,22 +127,35 @@ func (p *AsyncGossiper) Start() {
 // and storing the payload in the async AsyncGossiper's state
 // it is called by the Start loop when a new payload is set
 // the payload is only stored if the publish is successful
-func (p *AsyncGossiper) gossip(ctx context.Context, payload *eth.ExecutionPayload) {
+func (p *SimpleAsyncGossiper) gossip(ctx context.Context, payload *eth.ExecutionPayload) {
 	if err := p.net.PublishL2Payload(ctx, payload); err == nil {
 		p.currentPayload = payload
 	} else {
-		p.log.Warn("failed to publish newly created block", "id", payload.ID(), "err", err)
+		p.log.Warn("failed to publish newly created block",
+			"id", payload.ID(),
+			"hash", payload.BlockHash,
+			"err", err)
 		p.metrics.RecordPublishingError()
 	}
 }
 
 // getPayload is the internal handler function for getting the current payload
 // c is the channel the caller expects to receive the payload on
-func (p *AsyncGossiper) getPayload(c chan *eth.ExecutionPayload) {
+func (p *SimpleAsyncGossiper) getPayload(c chan *eth.ExecutionPayload) {
 	c <- p.currentPayload
 }
 
 // clearPayload is the internal handler function for clearing the current payload
-func (p *AsyncGossiper) clearPayload() {
+func (p *SimpleAsyncGossiper) clearPayload() {
 	p.currentPayload = nil
 }
+
+// NoOpGossiper is a no-op implementation of AsyncGossiper
+// it serves as a placeholder for when the AsyncGossiper is not needed
+type NoOpGossiper struct{}
+
+func (NoOpGossiper) Gossip(payload *eth.ExecutionPayload) {}
+func (NoOpGossiper) Get() *eth.ExecutionPayload           { return nil }
+func (NoOpGossiper) Clear()                               {}
+func (NoOpGossiper) Stop()                                {}
+func (NoOpGossiper) Start()                               {}

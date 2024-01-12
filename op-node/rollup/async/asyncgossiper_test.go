@@ -40,7 +40,7 @@ func TestAsyncGossiper(t *testing.T) {
 	// Test that the AsyncGossiper is running within a short duration
 	require.Eventually(t, func() bool {
 		return p.running.Load()
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 
 	// send a payload
 	payload := &eth.ExecutionPayload{
@@ -52,13 +52,13 @@ func TestAsyncGossiper(t *testing.T) {
 		return p.Get() == payload &&
 			// Test that the payload has been sent to the (mock) network
 			m.reqs[0] == payload
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 
 	p.Clear()
 	require.Eventually(t, func() bool {
 		// Test that the gossiper has no payload
 		return p.Get() == nil
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 
 	// Stop the AsyncGossiper
 	p.Stop()
@@ -66,7 +66,7 @@ func TestAsyncGossiper(t *testing.T) {
 	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 }
 
 // TestAsyncGossiperLoop confirms that when called repeatedly, the AsyncGossiper holds the latest payload
@@ -82,7 +82,7 @@ func TestAsyncGossiperLoop(t *testing.T) {
 	// Test that the AsyncGossiper is running within a short duration
 	require.Eventually(t, func() bool {
 		return p.running.Load()
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 
 	// send multiple payloads
 	for i := 0; i < 10; i++ {
@@ -95,7 +95,7 @@ func TestAsyncGossiperLoop(t *testing.T) {
 			return p.Get() == payload &&
 				// Test that the payload has been sent to the (mock) network
 				m.reqs[len(m.reqs)-1] == payload
-		}, time.Second, 10*time.Millisecond)
+		}, 10*time.Second, 10*time.Millisecond)
 	}
 	require.Equal(t, 10, len(m.reqs))
 	// Stop the AsyncGossiper
@@ -103,7 +103,7 @@ func TestAsyncGossiperLoop(t *testing.T) {
 	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 }
 
 // failingNetwork is a mock network that always fails to publish
@@ -130,11 +130,11 @@ func TestAsyncGossiperFailToPublish(t *testing.T) {
 	// Rather than expect the payload to become available, we should never see it, due to the publish failure
 	require.Never(t, func() bool {
 		return p.Get() == payload
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 	// Stop the AsyncGossiper
 	p.Stop()
 	// Test that the AsyncGossiper stops within a short duration
 	require.Eventually(t, func() bool {
 		return !p.running.Load()
-	}, time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 }

@@ -77,7 +77,7 @@ type Driver struct {
 
 	// async gossiper for payloads to be gossiped without
 	// blocking the event loop or waiting for insertion
-	asyncGossiper *async.AsyncGossiper
+	asyncGossiper async.AsyncGossiper
 
 	// L2 Signals:
 
