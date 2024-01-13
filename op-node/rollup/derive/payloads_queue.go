@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -76,11 +77,12 @@ func payloadMemSize(p *eth.ExecutionPayload) uint64 {
 // When the size grows too large, the first (lowest block-number) payload is removed from the queue.
 // PayloadsQueue allows entries with same block number, but does not allow duplicate blocks
 type PayloadsQueue struct {
-	pq          payloadsByNumber
-	currentSize uint64
-	MaxSize     uint64
-	blockHashes map[common.Hash]struct{}
-	SizeFn      func(p *eth.ExecutionPayload) uint64
+	pq           payloadsByNumber
+	currentSize  uint64
+	MaxSize      uint64
+	blockHashes  map[common.Hash]struct{}
+	SizeFn       func(p *eth.ExecutionPayload) uint64
+	highestBlock *eth.ExecutionPayload
 }
 
 func NewPayloadsQueue(maxSize uint64, sizeFn func(p *eth.ExecutionPayload) uint64) *PayloadsQueue {
@@ -128,7 +130,17 @@ func (upq *PayloadsQueue) Push(p *eth.ExecutionPayload) error {
 		upq.Pop()
 	}
 	upq.blockHashes[p.BlockHash] = struct{}{}
+	if upq.highestBlock == nil || upq.highestBlock.BlockNumber < p.BlockNumber {
+		upq.highestBlock = p
+	}
 	return nil
+}
+
+func (upq *PayloadsQueue) HighestUnsafeBlock(rollupCfg *rollup.Config) (eth.L2BlockRef, error) {
+	if upq.highestBlock == nil {
+		return eth.L2BlockRef{}, nil
+	}
+	return PayloadToBlockRef(rollupCfg, upq.highestBlock)
 }
 
 // Peek retrieves the payload with the lowest block number from the queue in O(1), or nil if the queue is empty.
