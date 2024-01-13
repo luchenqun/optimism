@@ -153,15 +153,13 @@ type EngineQueue struct {
 	syncCfg *sync.Config
 }
 
-var _ EngineControl = (*EngineQueue)(nil)
-
 // NewEngineQueue creates a new EngineQueue, which should be Reset(origin) before use.
-func NewEngineQueue(log log.Logger, cfg *rollup.Config, engine Engine, metrics Metrics, prev NextAttributesProvider, l1Fetcher L1Fetcher, syncCfg *sync.Config) *EngineQueue {
+func NewEngineQueue(log log.Logger, cfg *rollup.Config, l2Source L2Source, engine LocalEngineControl, metrics Metrics, prev NextAttributesProvider, l1Fetcher L1Fetcher, syncCfg *sync.Config) *EngineQueue {
 	return &EngineQueue{
 		log:            log,
 		cfg:            cfg,
-		ec:             NewEngineController(engine, log, metrics, cfg, syncCfg.SyncMode),
-		engine:         engine,
+		ec:             engine,
+		engine:         l2Source,
 		metrics:        metrics,
 		finalityData:   make([]FinalityData, 0, finalityLookback),
 		unsafePayloads: NewPayloadsQueue(maxUnsafePayloadsMemory, payloadMemSize),
@@ -225,20 +223,12 @@ func (eq *EngineQueue) FinalizedL1() eth.L1BlockRef {
 	return eq.finalizedL1
 }
 
-func (eq *EngineQueue) Finalized() eth.L2BlockRef {
-	return eq.ec.Finalized()
-}
-
-func (eq *EngineQueue) UnsafeL2Head() eth.L2BlockRef {
-	return eq.ec.UnsafeL2Head()
-}
-
-func (eq *EngineQueue) SafeL2Head() eth.L2BlockRef {
-	return eq.ec.SafeL2Head()
-}
-
-func (eq *EngineQueue) PendingSafeL2Head() eth.L2BlockRef {
-	return eq.ec.PendingSafeL2Head()
+func (eq *EngineQueue) HighestUnsafeBlock() eth.L2BlockRef {
+	ref, err := eq.unsafePayloads.HighestUnsafeBlock(eq.cfg)
+	if err != nil {
+		return eth.L2BlockRef{}
+	}
+	return ref
 }
 
 // Determine if the engine is syncing to the target block
@@ -261,7 +251,7 @@ func (eq *EngineQueue) Step(ctx context.Context) error {
 		// EOF error means we can't process the next unsafe payload. Then we should process next safe attributes.
 	}
 	if eq.isEngineSyncing() {
-		// Make pipeline first focus to sync unsafe blocks to engineSyncTarget
+		// The pipeline cannot move forwards if doing EL sync.
 		return EngineELSyncing
 	}
 	if eq.safeAttributes != nil {
