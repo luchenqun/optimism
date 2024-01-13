@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 )
@@ -64,6 +65,9 @@ type Driver struct {
 
 	// Driver config: verifier and sequencer settings
 	driverConfig *Config
+
+	// Sync Mod Config
+	syncCfg *sync.Config
 
 	// L1 Signals:
 	//
@@ -302,10 +306,26 @@ func (s *Driver) eventLoop() {
 			}
 		case payload := <-s.unsafeL2Payloads:
 			s.snapshot("New unsafe payload")
-			s.log.Info("Optimistically queueing unsafe L2 execution payload", "id", payload.ID())
-			s.derivation.AddUnsafePayload(payload)
-			s.metrics.RecordReceivedUnsafePayload(payload)
-			reqStep()
+			if s.syncCfg.SyncMode == sync.CLSync || !s.engineController.IsEngineSyncing() {
+				s.log.Info("Optimistically queueing unsafe L2 execution payload", "id", payload.ID())
+				s.derivation.AddUnsafePayload(payload)
+				s.metrics.RecordReceivedUnsafePayload(payload)
+				reqStep()
+			} else if s.syncCfg.SyncMode == sync.ELSync {
+				// TODO: always insert here, but log depending on if engine syncing or not?
+				ref, err := derive.PayloadToBlockRef(s.config, payload)
+				if err != nil {
+					s.log.Info("Failed to turn execution payload into a block ref", "id", payload.ID(), "err", err)
+					continue
+				}
+				if ref.Number <= s.engineController.UnsafeL2Head().Number {
+					continue
+				}
+				s.log.Info("Optimistically inserting unsafe L2 execution payload to drive EL sync", "id", payload.ID())
+				if err := s.engineController.InsertUnsafePayload(s.driverCtx, payload, ref); err != nil {
+					s.log.Warn("Failed to insert unsafe payload for EL sync", "id", payload.ID(), "err", err)
+				}
+			}
 
 		case newL1Head := <-s.l1HeadSig:
 			s.l1State.HandleNewL1HeadBlock(newL1Head)
@@ -321,6 +341,10 @@ func (s *Driver) eventLoop() {
 			delayedStepReq = nil
 			step()
 		case <-stepReqCh:
+			// Don't start the derivation pipeline until we are done with EL sync
+			if s.engineController.IsEngineSyncing() {
+				continue
+			}
 			s.metrics.SetDerivationIdle(false)
 			s.log.Debug("Derivation process step", "onto_origin", s.derivation.Origin(), "attempts", stepAttempts)
 			err := s.derivation.Step(s.driverCtx)
