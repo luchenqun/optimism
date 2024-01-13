@@ -12,6 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+type syncStatusEnum int
+
+const (
+	syncStatusCL syncStatusEnum = iota
+	syncStatusStartedEL
+	syncStatusFinishedELButNotFinalized
+	syncStatusFinishedEL
+)
+
 var errNoFCUNeeded = errors.New("no FCU call was needed")
 
 var _ EngineControl = (*EngineController)(nil)
@@ -24,11 +33,12 @@ type ExecEngine interface {
 }
 
 type EngineController struct {
-	engine    ExecEngine // Underlying execution engine RPC
-	log       log.Logger
-	metrics   Metrics
-	syncMode  sync.Mode
-	rollupCfg *rollup.Config
+	engine     ExecEngine // Underlying execution engine RPC
+	log        log.Logger
+	metrics    Metrics
+	syncMode   sync.Mode
+	syncStatus syncStatusEnum
+	rollupCfg  *rollup.Config
 
 	// Block Head State
 	unsafeHead      eth.L2BlockRef
@@ -45,11 +55,18 @@ type EngineController struct {
 }
 
 func NewEngineController(engine ExecEngine, log log.Logger, metrics Metrics, rollupCfg *rollup.Config, syncMode sync.Mode) *EngineController {
+	syncStatus := syncStatusCL
+	if syncMode == sync.ELSync {
+		syncStatus = syncStatusStartedEL
+	}
+
 	return &EngineController{
-		engine:    engine,
-		log:       log,
-		metrics:   metrics,
-		rollupCfg: rollupCfg,
+		engine:     engine,
+		log:        log,
+		metrics:    metrics,
+		rollupCfg:  rollupCfg,
+		syncMode:   syncMode,
+		syncStatus: syncStatus,
 	}
 }
 
@@ -76,7 +93,7 @@ func (e *EngineController) BuildingPayload() (eth.L2BlockRef, eth.PayloadID, boo
 }
 
 func (e *EngineController) IsEngineSyncing() bool {
-	return false
+	return e.syncStatus == syncStatusStartedEL
 }
 
 // Setters
@@ -208,6 +225,9 @@ func (e *EngineController) resetBuildingState() {
 // It returns true if the status is acceptable.
 func (e *EngineController) checkNewPayloadStatus(status eth.ExecutePayloadStatus) bool {
 	if e.syncMode == sync.ELSync {
+		if status == eth.ExecutionValid && e.syncStatus == syncStatusStartedEL {
+			e.syncStatus = syncStatusFinishedELButNotFinalized
+		}
 		// Allow SYNCING and ACCEPTED if engine EL sync is enabled
 		return status == eth.ExecutionValid || status == eth.ExecutionSyncing || status == eth.ExecutionAccepted
 	}
@@ -218,6 +238,9 @@ func (e *EngineController) checkNewPayloadStatus(status eth.ExecutePayloadStatus
 // It returns true if the status is acceptable.
 func (e *EngineController) checkForkchoiceUpdatedStatus(status eth.ExecutePayloadStatus) bool {
 	if e.syncMode == sync.ELSync {
+		if status == eth.ExecutionValid && e.syncStatus == syncStatusStartedEL {
+			e.syncStatus = syncStatusFinishedELButNotFinalized
+		}
 		// Allow SYNCING if engine P2P sync is enabled
 		return status == eth.ExecutionValid || status == eth.ExecutionSyncing
 	}
@@ -272,6 +295,12 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, payload *eth
 		SafeBlockHash:      e.safeHead.Hash,
 		FinalizedBlockHash: e.finalizedHead.Hash,
 	}
+	if e.syncStatus == syncStatusFinishedELButNotFinalized {
+		fc.SafeBlockHash = payload.BlockHash
+		fc.FinalizedBlockHash = payload.BlockHash
+		e.SetSafeHead(ref)
+		e.SetFinalizedHead(ref)
+	}
 	fcRes, err := e.engine.ForkchoiceUpdate(ctx, &fc, nil)
 	if err != nil {
 		var inputErr eth.InputError
@@ -293,20 +322,14 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, payload *eth
 	e.unsafeHead = ref
 	e.needFCUCall = false
 
+	if e.syncStatus == syncStatusFinishedELButNotFinalized {
+		e.syncStatus = syncStatusFinishedEL
+	}
+
 	return nil
 }
 
 // ResetBuildingState implements LocalEngineControl.
 func (e *EngineController) ResetBuildingState() {
 	e.resetBuildingState()
-}
-
-// ForkchoiceUpdate implements LocalEngineControl.
-func (e *EngineController) ForkchoiceUpdate(ctx context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
-	return e.engine.ForkchoiceUpdate(ctx, state, attr)
-}
-
-// NewPayload implements LocalEngineControl.
-func (e *EngineController) NewPayload(ctx context.Context, payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
-	return e.engine.NewPayload(ctx, payload)
 }
