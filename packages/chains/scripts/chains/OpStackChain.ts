@@ -64,8 +64,10 @@ export type L1Contracts<SourceId extends number> = {
 /**
  * Extension to the viem/chains Chain type to include all OP contracts
  */
-export type OpStackChain<SourceId extends number> =
-  Chain & // SourceId is an optional property on a normal viem chain representing the source chain // All l2 chains have a sourceId (l1)
-  { sourceId: SourceId } & { // Add additional contracts to l2
-    contracts: Chain['contracts'] & L1Contracts<SourceId> & L2Predeploys
-  }
+export type OpStackChain<SourceId extends number> = Chain & {
+  // SourceId is an optional property on a normal viem chain representing the source chain // All l2 chains have a sourceId (l1)
+  sourceId: SourceId
+} & {
+  // Add additional contracts to l2
+  contracts: Chain['contracts'] & L1Contracts<SourceId> & L2Predeploys
+}
