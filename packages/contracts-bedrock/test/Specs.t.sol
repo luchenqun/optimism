@@ -259,6 +259,7 @@ contract Specification_Test is CommonTest {
 
         // SystemConfig
         _addSpec({ _name: "SystemConfig", _sel: _getSel("UNSAFE_BLOCK_SIGNER_SLOT()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("START_BLOCK_SLOT()") });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("VERSION()") });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("batcherHash()") });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("gasLimit()") });
@@ -281,6 +282,21 @@ contract Specification_Test is CommonTest {
         _addSpec({ _name: "SystemConfig", _sel: _getSel("transferOwnership(address)"), _auth: Role.SYSTEMCONFIGOWNER });
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.unsafeBlockSigner.selector });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("version()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("l1CrossDomainMessenger()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("l1ERC721Bridge()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("l1StandardBridge()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("l2OutputOracle()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("optimismPortal()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("optimismMintableERC20Factory()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("batchInbox()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("startBlock()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("L1_CROSS_DOMAIN_MESSENGER_SLOT()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("L1_ERC_721_BRIDGE_SLOT()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("L1_STANDARD_BRIDGE_SLOT()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("L2_OUTPUT_ORACLE_SLOT()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("OPTIMISM_PORTAL_SLOT()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("OPTIMISM_MINTABLE_ERC20_FACTORY_SLOT()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("BATCH_INBOX_SLOT()") });
 
         // ProxyAdmin
         _addSpec({ _name: "ProxyAdmin", _sel: _getSel("addressManager()") });
