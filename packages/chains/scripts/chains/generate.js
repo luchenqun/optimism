@@ -22,13 +22,23 @@ function generateChainsFile() {
   Object.entries(addressesJson).forEach(([chainIdStr, contracts]) => {
     const chainId = parseInt(chainIdStr)
     const genesisBlock = chainId === 10 ? OP_GENESIS_BLOCK : 0
-    const viemChain = Object.values(viemChains).find(chain => chain.id === chainId)
-    const { ProxyAdmin, OptimismPortalProxy, AddressManager, L1ERC721BridgeProxy, L2OutputOracleProxy, L1StandardBridgeProxy, L1CrossDomainMessengerProxy, OptimismMintableERC20FactoryProxy } = contracts
+    const viemChain = Object.values(viemChains).find(
+      (chain) => chain.id === chainId
+    )
+    const {
+      ProxyAdmin,
+      OptimismPortalProxy,
+      AddressManager,
+      L1ERC721BridgeProxy,
+      L2OutputOracleProxy,
+      L1StandardBridgeProxy,
+      L1CrossDomainMessengerProxy,
+      OptimismMintableERC20FactoryProxy,
+    } = contracts
     /**
      * @type {import('./OpStackChain.js').OpStackChain<number>['contracts']}
      */
-    const viemContracts =
-    {
+    const viemContracts = {
       ...getL2Predeploys(genesisBlock),
       portal: {
         address: OptimismPortalProxy,
@@ -56,7 +66,9 @@ function generateChainsFile() {
       },
     }
     if (!viemChain) {
-      console.warn(`no viem chain found for superchain chain ${chainId}! Please notify this chain partner to do a pr to viem`)
+      console.warn(
+        `no viem chain found for superchain chain ${chainId}! Please notify this chain partner to do a pr to viem`
+      )
       chains[chainId] = {
         id: chainId,
         // Update viem chains so this name is correct
@@ -72,10 +84,10 @@ function generateChainsFile() {
           },
         },
         contracts: {
-          ...viemContracts
+          ...viemContracts,
         },
         // TODO we are assuming an unknown chain has a sourceId of 1 (mainnet)
-        sourceId: 1
+        sourceId: 1,
       }
     } else {
       chains[chainId] = {
@@ -83,7 +95,7 @@ function generateChainsFile() {
         contracts: {
           ...viemChain.contracts,
           ...viemContracts,
-        }
+        },
       }
     }
   })
@@ -93,8 +105,12 @@ function generateChainsFile() {
    */
   const file = []
 
-  Object.values(chains).forEach(chain => {
-    file.push(`export const ${(camelCase(chain.network ?? chain.name))} = ${JSON.stringify(chain, null, 2)} as const`)
+  Object.values(chains).forEach((chain) => {
+    file.push(
+      `export const ${camelCase(
+        chain.network ?? chain.name
+      )} = ${JSON.stringify(chain, null, 2)} as const`
+    )
   })
 
   // EOL
@@ -102,4 +118,3 @@ function generateChainsFile() {
 
   return file.join('\n')
 }
-
