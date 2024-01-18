@@ -35,6 +35,30 @@ func (p *PreimageOracleData) GetPreimageWithoutSize() []byte {
 	return p.OracleData[8:]
 }
 
+// LibKeccakBlockSizeBytes is the block size of the keccak permutation in bytes.
+const LibKeccakBlockSizeBytes = 136
+
+// LeafCount returns the number of leaves in the preimage oracle data.
+func (p *PreimageOracleData) LeafCount() uint32 {
+	return uint32((len(p.OracleData) + LibKeccakBlockSizeBytes - 1) / LibKeccakBlockSizeBytes)
+}
+
+// GetKeccakLeaf returns the keccak leaf for the preimage data at the specified offset.
+func (p *PreimageOracleData) GetKeccakLeaf(offset uint32) []byte {
+	offset = offset * LibKeccakBlockSizeBytes
+	end := offset + LibKeccakBlockSizeBytes
+	if offset >= uint32(len(p.OracleData)) {
+		return make([]byte, LibKeccakBlockSizeBytes)
+	}
+	if end > uint32(len(p.OracleData)) {
+		padded := make([]byte, LibKeccakBlockSizeBytes)
+		data := p.OracleData[offset:]
+		copy(padded[LibKeccakBlockSizeBytes-len(data):], data)
+		return padded
+	}
+	return p.OracleData[offset:end]
+}
+
 // NewPreimageOracleData creates a new [PreimageOracleData] instance.
 func NewPreimageOracleData(key []byte, data []byte, offset uint32) *PreimageOracleData {
 	return &PreimageOracleData{

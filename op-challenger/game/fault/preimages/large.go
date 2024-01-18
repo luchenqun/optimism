@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
+	"github.com/ethereum-optimism/optimism/op-challenger/game/keccak/matrix"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -32,12 +35,22 @@ func NewLargePreimageUploader(logger log.Logger, txMgr txmgr.TxManager, contract
 }
 
 func (p *LargePreimageUploader) UploadPreimage(ctx context.Context, parent uint64, data *types.PreimageOracleData) error {
-	// todo(proofs#467): generate the full preimage
-	// todo(proofs#467): run the preimage through the keccak permutation, hashing
-	//                   the intermediate state matrix after each block is applied.
-	// todo(proofs#467): split up the preimage into chunks and submit the preimages
-	//                   and state commitments to the preimage oracle contract using
-	//                   `PreimageOracle.addLeavesLPP` (`_finalize` = false).
+	// Run the preimage through the keccak permutation.
+	stateMatrix := matrix.NewStateMatrix()
+	leafs := make([]contracts.Leaf, 0, data.LeafCount())
+	for i := 0; i < int(data.LeafCount()); i++ {
+		// Absorb the next leaf into the state matrix.
+		leaf := data.GetKeccakLeaf(uint32(i))
+		stateMatrix.AbsorbLeaf(leaf, i == int(data.LeafCount())-1)
+		// Hash the intermediate state matrix after each block is applied.
+		statCommitment := stateMatrix.StateCommitment()
+		// Construct a contract leaf from the keccak leaf.
+		leafs = append(leafs, contracts.Leaf{
+			Input:           ([types.LibKeccakBlockSizeBytes]byte)(leaf),
+			Index:           big.NewInt(int64(i)),
+			StateCommitment: common.BytesToHash(statCommitment[:]),
+		})
+	}
 
 	// TODO(client-pod#473): The UUID must be deterministic so the challenger can resume uploads.
 	uuid, err := p.newUUID()
@@ -47,6 +60,11 @@ func (p *LargePreimageUploader) UploadPreimage(ctx context.Context, parent uint6
 	err = p.initLargePreimage(ctx, uuid, data.OracleOffset, uint32(len(data.OracleData)))
 	if err != nil {
 		return fmt.Errorf("failed to initialize large preimage with uuid: %s: %w", uuid, err)
+	}
+
+	err = p.addLargePreimageLeafs(ctx, uuid, leafs, false)
+	if err != nil {
+		return fmt.Errorf("failed to add leaves to large preimage with uuid: %s: %w", uuid, err)
 	}
 
 	// todo(proofs#467): track the challenge period starting once the full preimage is posted.
@@ -70,6 +88,21 @@ func (p *LargePreimageUploader) initLargePreimage(ctx context.Context, uuid *big
 	}
 	if err := p.sendTxAndWait(ctx, candidate); err != nil {
 		return fmt.Errorf("failed to populate pre-image oracle: %w", err)
+	}
+	return nil
+}
+
+// addLargePreimageLeafs adds leafs to the large preimage proposal.
+// This method *must* be called after calling [initLargePreimage].
+func (p *LargePreimageUploader) addLargePreimageLeafs(ctx context.Context, uuid *big.Int, leaves []contracts.Leaf, finalize bool) error {
+	candidates, err := p.contract.AddLeaves(uuid, leaves, finalize)
+	if err != nil {
+		return fmt.Errorf("failed to create pre-image oracle tx: %w", err)
+	}
+	for _, candidate := range candidates {
+		if err := p.sendTxAndWait(ctx, candidate); err != nil {
+			return fmt.Errorf("failed to populate pre-image oracle: %w", err)
+		}
 	}
 	return nil
 }
